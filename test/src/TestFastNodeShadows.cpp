@@ -32,35 +32,50 @@ TEST_CASE("Lightweight shadows are opt-in and survive style serialization", "[gr
     fastStyle.FastShadowEnabled = true;
     CHECK(QtNodes::NodeStyle(fastStyle.toJson()).FastShadowEnabled);
 
+    fastStyle.loadJson(legacyJson);
+    CHECK_FALSE(fastStyle.FastShadowEnabled);
+}
+
+TEST_CASE("Shadow flags select the graphics effect", "[graphics][shadows]")
+{
+    bool const shadowEnabled = GENERATE(false, true);
+    bool const fastShadowEnabled = GENERATE(false, true);
+    CAPTURE(shadowEnabled, fastShadowEnabled);
+    auto app = applicationSetup();
+
+    QtNodes::NodeStyle style;
+    style.ShadowEnabled = shadowEnabled;
+    style.FastShadowEnabled = fastShadowEnabled;
+
     TestGraphModel model;
-    auto const legacyId = model.addNode("legacy");
-    auto const fastId = model.addNode("fast");
-    REQUIRE(model.setNodeData(legacyId, QtNodes::NodeRole::Style, legacyStyle.toJson()));
-    REQUIRE(model.setNodeData(fastId, QtNodes::NodeRole::Style, fastStyle.toJson()));
+    auto const id = model.addNode("shadow");
+    // Match DataFlowGraphModel and the documented NodeRole::Style representation.
+    REQUIRE(model.setNodeData(id, QtNodes::NodeRole::Style, style.toJson().toVariantMap()));
 
     QtNodes::BasicGraphicsScene scene(model);
-    auto *legacyNode = scene.nodeGraphicsObject(legacyId);
-    auto *fastNode = scene.nodeGraphicsObject(fastId);
-    REQUIRE(legacyNode != nullptr);
-    REQUIRE(fastNode != nullptr);
-    CHECK(legacyNode->graphicsEffect() != nullptr);
-    CHECK(fastNode->graphicsEffect() == nullptr);
+    auto *node = scene.nodeGraphicsObject(id);
+    REQUIRE(node != nullptr);
+    CHECK((node->graphicsEffect() != nullptr) == (shadowEnabled && !fastShadowEnabled));
 }
 
 TEST_CASE("Lightweight shadow fits within default node margins", "[graphics][shadows]")
 {
+    bool const vertical = GENERATE(false, true);
+    bool const shadowEnabled = GENERATE(false, true);
+    CAPTURE(vertical, shadowEnabled);
     auto app = applicationSetup();
 
     TestGraphModel model;
     auto const id = model.addNode("fast");
 
     QtNodes::NodeStyle style;
-    style.ShadowEnabled = true;
+    style.ShadowEnabled = shadowEnabled;
     style.FastShadowEnabled = true;
     style.ShadowColor = QColor(0, 0, 0);
-    REQUIRE(model.setNodeData(id, QtNodes::NodeRole::Style, style.toJson()));
+    REQUIRE(model.setNodeData(id, QtNodes::NodeRole::Style, style.toJson().toVariantMap()));
 
     QtNodes::BasicGraphicsScene scene(model);
+    scene.setOrientation(vertical ? Qt::Vertical : Qt::Horizontal);
     auto *node = scene.nodeGraphicsObject(id);
     REQUIRE(node != nullptr);
 
@@ -76,11 +91,28 @@ TEST_CASE("Lightweight shadow fits within default node margins", "[graphics][sha
     image.fill(Qt::transparent);
     QPainter painter(&image);
     painter.translate(25, 25);
+    QTransform const transform = painter.transform();
+    auto const renderHints = painter.renderHints();
     QtNodes::DefaultNodePainter nodePainter;
     nodePainter.drawNodeRect(&painter, *node);
+    CHECK(painter.transform() == transform);
+    CHECK(painter.renderHints() == renderHints);
+    CHECK(painter.pen().style() != Qt::NoPen);
+    CHECK(painter.brush().style() == Qt::LinearGradientPattern);
     painter.end();
 
     int const midX = 25 + size.width() / 2;
-    CHECK(qAlpha(image.pixel(midX, 25 + size.height() + 6)) > 0);
+    CHECK((qAlpha(image.pixel(midX, 25 + size.height() + 6)) > 0) == shadowEnabled);
     CHECK(qAlpha(image.pixel(midX, 25 + size.height() + 19)) == 0);
+
+    QRectF const bounds = scene.nodeGeometry().boundingRect(id).translated(25, 25);
+    unsigned int pixelsOutsideBounds = 0;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (qAlpha(image.pixel(x, y)) != 0 && !bounds.contains(QPointF(x, y))) {
+                ++pixelsOutsideBounds;
+            }
+        }
+    }
+    CHECK(pixelsOutsideBounds == 0);
 }

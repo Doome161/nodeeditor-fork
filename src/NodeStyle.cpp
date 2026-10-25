@@ -120,7 +120,7 @@ void NodeStyle::loadJson(QJsonObject const &json)
     NODE_STYLE_READ_COLOR(obj, GradientColor3);
     NODE_STYLE_READ_COLOR(obj, ShadowColor);
     NODE_STYLE_READ_BOOL(obj, ShadowEnabled);
-    FastShadowEnabled = obj.value("FastShadowEnabled").toBool(false);
+    NODE_STYLE_READ_BOOL(obj, FastShadowEnabled);
     NODE_STYLE_READ_COLOR(obj, FontColor);
     NODE_STYLE_READ_COLOR(obj, FontColorFaded);
     NODE_STYLE_READ_COLOR(obj, ConnectionPointColor);
@@ -147,7 +147,7 @@ QJsonObject NodeStyle::toJson() const
     NODE_STYLE_WRITE_COLOR(obj, GradientColor3);
     NODE_STYLE_WRITE_COLOR(obj, ShadowColor);
     NODE_STYLE_WRITE_BOOL(obj, ShadowEnabled);
-    obj["FastShadowEnabled"] = FastShadowEnabled;
+    NODE_STYLE_WRITE_BOOL(obj, FastShadowEnabled);
     NODE_STYLE_WRITE_COLOR(obj, FontColor);
     NODE_STYLE_WRITE_COLOR(obj, FontColorFaded);
     NODE_STYLE_WRITE_COLOR(obj, ConnectionPointColor);

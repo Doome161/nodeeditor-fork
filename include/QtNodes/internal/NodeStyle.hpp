@@ -61,8 +61,8 @@ public:
     QColor GradientColor3;
     QColor ShadowColor;
     bool ShadowEnabled;
-    // Draw an inexpensive shadow with DefaultNodePainter instead of a graphics effect.
-    // False by default; custom painters are responsible for their own shadow.
+    /// Draw an approximate shadow with DefaultNodePainter instead of a graphics effect.
+    /// Requires ShadowEnabled; custom painters are responsible for their own shadow.
     bool FastShadowEnabled{false};
     QColor FontColor;
     QColor FontColorFaded;
